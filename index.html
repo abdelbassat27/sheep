@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الديوان - إدارة القطيع الاحترافية</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a2f">
+</head>
+<body>
+    <div class="app-container">
+        <header class="main-header">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" width="50" height="50">
+                        <circle cx="50" cy="50" r="45" fill="#c9a84c" />
+                        <text x="50" y="68" font-size="40" text-anchor="middle" fill="#1e3a2f" font-weight="bold">🐑</text>
+                    </svg>
+                </div>
+                <div>
+                    <h1>الديوان</h1>
+                    <span class="subtitle">إدارة القطيع الذكية</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <span id="firebaseStatus" class="firebase-status offline" title="حالة الاتصال بـ Firebase">🟠 محلي</span>
+                <button class="btn btn-outline" onclick="toggleTheme()"><i class="fas fa-moon"></i> <span id="themeLabel">ليلي</span></button>
+                <button class="btn btn-primary" onclick="openAddModal()"><i class="fas fa-plus-circle"></i> إضافة رأس</button>
+                <button class="btn btn-success" onclick="exportData()"><i class="fas fa-file-export"></i> تصدير JSON</button>
+                <button class="btn btn-success" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> تقرير PDF</button>
+                <button class="btn btn-secondary" onclick="openSettings()"><i class="fas fa-cog"></i></button>
+            </div>
+        </header>
+
+        <nav class="main-nav">
+            <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')"><i class="fas fa-chart-pie"></i> لوحة التحكم</button>
+            <button class="nav-btn" data-tab="flock" onclick="switchTab('flock')"><i class="fas fa-sheep"></i> القطيع</button>
+            <button class="nav-btn" data-tab="vaccines" onclick="switchTab('vaccines')"><i class="fas fa-syringe"></i> التلقيح</button>
+            <button class="nav-btn" data-tab="finance" onclick="switchTab('finance')"><i class="fas fa-coins"></i> المالية</button>
+            <button class="nav-btn" data-tab="analytics" onclick="switchTab('analytics')"><i class="fas fa-chart-line"></i> التحليلات</button>
+        </nav>
+
+        <!-- لوحة التحكم -->
+        <section id="tab-dashboard" class="tab-content active">
+            <div class="stats-grid" id="statsContainer">
+                <div class="stat-card"><span class="icon"><i class="fas fa-sheep"></i></span><div class="number" id="totalSheep">0</div><div class="label">إجمالي القطيع</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-mars"></i></span><div class="number" id="totalMales">0</div><div class="label">الذكور</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-venus"></i></span><div class="number" id="totalFemales">0</div><div class="label">الإناث</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-heart" style="color:#22c55e;"></i></span><div class="number" id="totalAlive">0</div><div class="label">أحياء</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-skull" style="color:#ef4444;"></i></span><div class="number" id="totalDead">0</div><div class="label">متوفى / مفقود</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-baby"></i></span><div class="number" id="totalKids">0</div><div class="label">إجمالي النسل</div></div>
+                <div class="stat-card gold"><span class="icon"><i class="fas fa-coins"></i></span><div class="number" id="totalValue">0</div><div class="label">قيمة القطيع (دج)</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-syringe"></i></span><div class="number" id="upcomingVaccines">0</div><div class="label">تلقيحات قادمة</div></div>
+            </div>
+            <!-- إضافات إحصائيات متقدمة -->
+            <div class="stats-grid" style="margin-bottom:20px;">
+                <div class="stat-card"><span class="icon"><i class="fas fa-venus-mars"></i></span><div class="number" id="genderRatio">0%</div><div class="label">نسبة الإناث</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-weight"></i></span><div class="number" id="avgWeight">0</div><div class="label">متوسط الوزن (كغ)</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-tree"></i></span><div class="number" id="breedCount">0</div><div class="label">عدد السلالات</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-calendar-alt"></i></span><div class="number" id="avgAge">0</div><div class="label">متوسط العمر (شهر)</div></div>
+            </div>
+            <!-- تنبيهات -->
+            <div id="alertsContainer" class="alerts-bar" style="margin-bottom:20px;"></div>
+            <div class="charts-grid">
+                <div class="chart-card"><h3><i class="fas fa-chart-pie"></i> توزيع الجنس</h3><canvas id="genderChart"></canvas></div>
+                <div class="chart-card"><h3><i class="fas fa-chart-pie"></i> حالة القطيع</h3><canvas id="statusChart"></canvas></div>
+                <div class="chart-card"><h3><i class="fas fa-chart-bar"></i> توزيع الأنواع</h3><canvas id="typeChart"></canvas></div>
+                <div class="chart-card"><h3><i class="fas fa-chart-bar"></i> الولادات حسب السنة</h3><canvas id="birthsChart"></canvas></div>
+            </div>
+        </section>
+
+        <!-- القطيع -->
+        <section id="tab-flock" class="tab-content">
+            <div class="controls-bar">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="بحث بالاسم أو الرقم..." oninput="filterData()">
+                </div>
+                <div class="filter-group">
+                    <select id="statusFilter" onchange="filterData()">
+                        <option value="all">جميع الحالات</option>
+                        <option value="حية">حية</option>
+                        <option value="ماتت">ماتت</option>
+                        <option value="مباعة">مباعة</option>
+                    </select>
+                    <select id="typeFilter" onchange="filterData()">
+                        <option value="all">جميع الأنواع</option>
+                        <option value="نعجة">نعجة</option>
+                        <option value="خروف">خروف</option>
+                        <option value="خروفة">خروفة</option>
+                        <option value="كبش">كبش</option>
+                    </select>
+                    <select id="breedFilter" onchange="filterData()">
+                        <option value="all">جميع السلالات</option>
+                    </select>
+                    <input type="number" id="priceMin" placeholder="الحد الأدنى للسعر" style="width:120px;padding:8px;border-radius:50px;border:1px solid var(--border-color);background:var(--bg-body);color:var(--text-primary);" onchange="filterData()">
+                    <input type="number" id="priceMax" placeholder="الحد الأعلى" style="width:120px;padding:8px;border-radius:50px;border:1px solid var(--border-color);background:var(--bg-body);color:var(--text-primary);" onchange="filterData()">
+                </div>
+                <div class="view-toggle">
+                    <button class="active" id="gridViewBtn" onclick="setView('grid')"><i class="fas fa-th-large"></i></button>
+                    <button id="listViewBtn" onclick="setView('list')"><i class="fas fa-list-ul"></i></button>
+                </div>
+            </div>
+            <div id="gridContainer" class="cards-grid"></div>
+            <div id="tableContainer" class="table-view">
+                <table>
+                    <thead><tr><th>#ID</th><th>الاسم</th><th>النوع</th><th>السلالة</th><th>الوزن</th><th>الحالة</th><th>النسل</th><th>السعر</th><th>التلقيح</th><th>الإجراءات</th></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- التلقيح -->
+        <section id="tab-vaccines" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-syringe"></i> سجل التلقيحات</h2>
+                <button class="btn btn-primary" onclick="openVaccineModal()"><i class="fas fa-plus"></i> إضافة تلقيح</button>
+            </div>
+            <div class="vaccines-summary" id="vaccinesSummary"></div>
+            <div class="table-view" style="display:block;">
+                <table>
+                    <thead><tr><th>الرقم</th><th>الاسم</th><th>اللقاح</th><th>تاريخ التلقيح</th><th>الموعد القادم</th><th>الحالة</th><th>ملاحظات</th></tr></thead>
+                    <tbody id="vaccinesTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- المالية -->
+        <section id="tab-finance" class="tab-content">
+            <div class="stats-grid finance-stats">
+                <div class="stat-card gold"><span class="icon"><i class="fas fa-wallet"></i></span><div class="number" id="finTotalValue">0</div><div class="label">قيمة القطيع الحالي</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-arrow-up" style="color:#22c55e;"></i></span><div class="number" id="finSales">0</div><div class="label">إجمالي المبيعات</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-arrow-down" style="color:#ef4444;"></i></span><div class="number" id="finPurchases">0</div><div class="label">إجمالي المشتريات</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-balance-scale"></i></span><div class="number" id="finProfit">0</div><div class="label">صافي الربح التقديري</div></div>
+                <div class="stat-card"><span class="icon"><i class="fas fa-percent"></i></span><div class="number" id="finMargin">0%</div><div class="label">هامش الربح</div></div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card full-width"><h3><i class="fas fa-chart-line"></i> توزيع القيم حسب الحالة</h3><canvas id="financeChart" height="120"></canvas></div>
+            </div>
+            <div class="section-header" style="margin-top:25px;"><h2><i class="fas fa-list"></i> تفاصيل الأسعار</h2></div>
+            <div class="table-view" style="display:block;">
+                <table>
+                    <thead><tr><th>#ID</th><th>الاسم</th><th>الحالة</th><th>سعر الشراء</th><th>سعر البيع</th><th>الربح</th><th>ملاحظات مالية</th></tr></thead>
+                    <tbody id="financeTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- التحليلات المتقدمة -->
+        <section id="tab-analytics" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-line"></i> تحليلات متقدمة</h2>
+                <button class="btn btn-secondary" onclick="exportAnalyticsPDF()"><i class="fas fa-file-pdf"></i> تصدير التحليل</button>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card full-width"><h3><i class="fas fa-weight"></i> توزيع الأوزان</h3><canvas id="weightChart" height="100"></canvas></div>
+                <div class="chart-card"><h3><i class="fas fa-calendar"></i> التوزيع العمري</h3><canvas id="ageChart"></canvas></div>
+                <div class="chart-card"><h3><i class="fas fa-tags"></i> توزيع السلالات</h3><canvas id="breedChart"></canvas></div>
+                <div class="chart-card full-width"><h3><i class="fas fa-dollar-sign"></i> متوسط السعر حسب النوع</h3><canvas id="priceTypeChart"></canvas></div>
+            </div>
+            <div style="background:var(--bg-card);border-radius:var(--radius);padding:20px;margin-top:20px;border:1px solid var(--border-color);">
+                <h4 style="margin-bottom:10px;"><i class="fas fa-info-circle"></i> مؤشرات الأداء الرئيسية</h4>
+                <div id="kpiContainer" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- نوافذ منبثقة -->
+    <div class="modal-overlay" id="detailModal"><div class="modal-box large"><button class="modal-close" onclick="closeModal()">&times;</button><div id="detailContent"></div></div></div>
+    <div class="modal-overlay" id="addModal"><div class="modal-box large"><button class="modal-close" onclick="closeAddModal()">&times;</button><h2 id="addModalTitle">تسجيل رأس جديد</h2><form id="addForm" onsubmit="saveSheep(event)"><input type="hidden" id="editId"><div class="form-section"><h4><i class="fas fa-info-circle"></i> البيانات الأساسية</h4><div class="form-row"><div class="form-group"><label>الرقم التعريفي *</label><input type="text" id="fTag" required placeholder="مثال: 42"></div><div class="form-group"><label>الاسم *</label><input type="text" id="fName" required placeholder="اسم النعجة"></div></div><div class="form-row"><div class="form-group"><label>النوع</label><select id="fType"><option value="نعجة">نعجة</option><option value="خروف">خروف</option><option value="خروفة">خروفة</option><option value="كبش">كبش</option></select></div><div class="form-group"><label>الجنس</label><select id="fGender"><option value="أنثى">أنثى</option><option value="ذكر">ذكر</option></select></div></div><div class="form-row"><div class="form-group"><label>السلالة</label><input type="text" id="fBreed" placeholder="مثال: أولاد جلال، رحماني..."></div><div class="form-group"><label>الوزن (كغ)</label><input type="number" id="fWeight" min="0" step="0.5" placeholder="0"></div></div><div class="form-row"><div class="form-group"><label>تاريخ الميلاد</label><input type="date" id="fBirth"></div><div class="form-group"><label>الحالة</label><select id="fStatus"><option value="حية">حية</option><option value="ماتت">ماتت</option><option value="مباعة">مباعة</option></select></div></div><div class="form-group"><label>اللون / العلامات</label><input type="text" id="fColor" placeholder="مثال: بيضاء، حمراء، بقع..."></div></div><div class="form-section"><h4><i class="fas fa-coins"></i> الأسعار والمالية</h4><div class="form-row"><div class="form-group"><label>سعر الشراء (دج)</label><input type="number" id="fPrice" min="0" step="1000" placeholder="0"></div><div class="form-group"><label>سعر البيع (دج)</label><input type="number" id="fSalePrice" min="0" step="1000" placeholder="0"></div></div><div class="form-group"><label>ملاحظات مالية</label><textarea id="fFinanceNotes" rows="2" placeholder="مثال: مباع بـ 85000، شراء من السوق..."></textarea></div></div><div class="form-section"><h4><i class="fas fa-sticky-note"></i> ملاحظات عامة</h4><div class="form-group"><textarea id="fNotes" rows="3" placeholder="ملاحظات عامة، أولاد، تفاصيل..."></textarea></div></div><button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;"><i class="fas fa-save"></i> حفظ البيانات</button></form></div></div>
+    <div class="modal-overlay" id="vaccineModal"><div class="modal-box"><button class="modal-close" onclick="closeVaccineModal()">&times;</button><h2>إضافة تلقيح</h2><form id="vaccineForm" onsubmit="saveVaccine(event)"><div class="form-group"><label>اختر الرأس *</label><select id="vSheepId" required></select></div><div class="form-group"><label>اسم اللقاح *</label><input type="text" id="vName" required placeholder="مثال: جدري، طاعون، بروسيلا..."></div><div class="form-row"><div class="form-group"><label>تاريخ التلقيح *</label><input type="date" id="vDate" required></div><div class="form-group"><label>الموعد القادم</label><input type="date" id="vNextDate"></div></div><div class="form-group"><label>ملاحظات</label><textarea id="vNotes" rows="2"></textarea></div><button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;"><i class="fas fa-save"></i> حفظ التلقيح</button></form></div></div>
+    <div class="modal-overlay" id="kidModal"><div class="modal-box"><button class="modal-close" onclick="closeKidModal()">&times;</button><h2>إضافة نسل</h2><form id="kidForm" onsubmit="saveKid(event)"><input type="hidden" id="kidParentId"><div class="form-group"><label>النوع *</label><select id="kidType" required><option value="خروف">خروف</option><option value="خروفة">خروفة</option><option value="كبش">كبش</option><option value="نعجة">نعجة</option></select></div><div class="form-group"><label>التاريخ *</label><input type="text" id="kidDate" required placeholder="مثال: 03/2026 أو جوان 2026"></div><div class="form-group"><label>ملاحظات</label><input type="text" id="kidNotes" placeholder="توأم، مباع، مات..."></div><button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;"><i class="fas fa-save"></i> إضافة</button></form></div></div>
+    <div class="modal-overlay" id="settingsModal"><div class="modal-box"><button class="modal-close" onclick="closeSettings()">&times;</button><h2>الإعدادات</h2><div class="form-group"><label>الوحدة النقدية</label><select id="currencyUnit"><option value="دج">دج (دينار جزائري)</option><option value="$">$ (دولار)</option><option value="€">€ (يورو)</option></select></div><div class="form-group"><label>تفعيل التنبيهات الصوتية</label><input type="checkbox" id="soundAlerts" checked></div><div class="form-group"><label>عدد الأيام للتنبيه المسبق للتلقيحات</label><input type="number" id="alertDays" value="7" min="1" max="30"></div><button class="btn btn-primary" onclick="saveSettings()">حفظ الإعدادات</button></div></div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered!', reg))
+                    .catch(err => console.error('Service Worker registration failed', err));
+            });
+        }
+    </script>
+</body>
+</html>
