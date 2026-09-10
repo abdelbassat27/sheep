@@ -856,32 +856,113 @@ function exportData() {
     URL.revokeObjectURL(url);
 }
 
-function exportPDF() {
+async function exportPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'pt', 'a4');
-    doc.setFont('helvetica');
-    doc.setFontSize(18);
-    doc.text('تقرير القطيع - الديوان', 40, 40);
-    doc.setFontSize(12);
-    const dateStr = new Date().toLocaleDateString('ar-EG');
-    doc.text(`التاريخ: ${dateStr}`, 40, 70);
-    doc.text(`إجمالي الرؤوس: ${sheepData.length}`, 40, 90);
-    const alive = sheepData.filter(s => s.status==='حية').length;
-    doc.text(`الأحياء: ${alive}`, 40, 110);
-    doc.text(`الإناث: ${sheepData.filter(s=>s.gender==='أنثى').length}`, 40, 130);
-    doc.text(`الذكور: ${sheepData.filter(s=>s.gender==='ذكر').length}`, 40, 150);
-    const yStart = 180;
-    doc.text('قائمة الرؤوس:', 40, yStart);
-    let y = yStart + 20;
-    sheepData.slice(0, 15).forEach(s => {
-        doc.text(`#${s.id} ${s.name} (${s.type}) - ${s.status}`, 40, y);
-        y += 18;
-        if (y > 700) { doc.addPage(); y = 40; }
-    });
-    if (sheepData.length > 15) {
-        doc.text(`... و ${sheepData.length-15} رأس آخر`, 40, y);
+
+    // تحميل خط عربي (Amiri - خط جميل وواضح للعربية)
+    // يمكنك تغيير الرابط إذا أردت خطاً آخر
+    const fontUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/amiri/Amiri-Regular.ttf';
+    
+    try {
+        const fontResponse = await fetch(fontUrl);
+        const fontBuffer = await fontResponse.arrayBuffer();
+        const fontBase64 = btoa(String.fromCharCode(...new Uint8Array(fontBuffer)));
+        
+        doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
+        doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+        doc.setFont('Amiri');
+    } catch (e) {
+        console.warn('فشل تحميل الخط العربي، سيتم استخدام الخط الافتراضي', e);
+        doc.setFont('helvetica');
     }
-    doc.save(`تقرير_الديوان_${new Date().toISOString().slice(0,10)}.pdf`);
+
+    // إعداد الاتجاه من اليمين لليسار
+    doc.setR2L(true); // مهم جداً للعربية
+
+    let y = 50;
+
+    // العنوان
+    doc.setFontSize(22);
+    doc.text('تقرير القطيع - الديوان', 297, y, { align: 'center' });
+    y += 35;
+
+    // التاريخ
+    doc.setFontSize(12);
+    const dateStr = new Date().toLocaleDateString('ar-EG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    doc.text(`التاريخ: ${dateStr}`, 555, y, { align: 'right' });
+    y += 30;
+
+    // الإحصائيات
+    const total = sheepData.length;
+    const alive = sheepData.filter(s => s.status === 'حية').length;
+    const females = sheepData.filter(s => s.gender === 'أنثى').length;
+    const males = sheepData.filter(s => s.gender === 'ذكر').length;
+    const dead = total - alive;
+
+    doc.setFontSize(14);
+    doc.text('ملخص القطيع:', 555, y, { align: 'right' });
+    y += 25;
+
+    doc.setFontSize(12);
+    const stats = [
+        `إجمالي الرؤوس: ${total}`,
+        `الأحياء: ${alive}`,
+        `المتوفون / المفقودون: ${dead}`,
+        `الإناث: ${females}`,
+        `الذكور: ${males}`
+    ];
+
+    stats.forEach(stat => {
+        doc.text(stat, 555, y, { align: 'right' });
+        y += 20;
+    });
+
+    y += 15;
+    doc.setFontSize(14);
+    doc.text('قائمة الرؤوس:', 555, y, { align: 'right' });
+    y += 25;
+
+    doc.setFontSize(11);
+
+    // عرض أول 25 رأس (لتجنب صفحة طويلة جداً)
+    const list = sheepData.slice(0, 25);
+    
+    list.forEach((s, index) => {
+        const line = `#${s.id}  |  ${s.name}  |  ${s.type || '-'}  |  ${s.status || '-'}  |  ${s.breed || '-'}`;
+        doc.text(line, 555, y, { align: 'right' });
+        y += 18;
+
+        if (y > 780) {
+            doc.addPage();
+            doc.setFont('Amiri');
+            y = 50;
+        }
+    });
+
+    if (sheepData.length > 25) {
+        y += 10;
+        doc.setFontSize(11);
+        doc.text(`... و ${sheepData.length - 25} رأس آخر`, 555, y, { align: 'right' });
+    }
+
+    // تذييل الصفحة
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(9);
+        doc.setTextColor(120);
+        doc.text(`صفحة ${i} من ${pageCount}  |  الديوان - إدارة القطيع`, 297, 820, { align: 'center' });
+        doc.setTextColor(0);
+    }
+
+    // حفظ الملف
+    const fileName = `تقرير_الديوان_${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
 }
 
 function exportAnalyticsPDF() {
